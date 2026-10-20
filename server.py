@@ -16,7 +16,10 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
 # Разрешаем CORS для всех (потом можешь заменить '*' на ссылку твоего сайта от Netlify)
-CORS(app, supports_credentials=True, origins="*") 
+CORS(app, supports_credentials=True, origins=["https://aesthetic-praline-fef347.netlify.app"]) 
+
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
 
 # Подключение к PostgreSQL (Neon)
 # Если базы нет локально, используется DATABASE_URL из настроек Render
