@@ -1,33 +1,54 @@
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
+import psycopg2
 import os
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 
 app = Flask(__name__)
-# ВАЖНО: Секретный ключ нужен для шифрования Cookie (сессий). 
 app.secret_key = os.environ.get('SECRET_KEY')
-CORS(app, supports_credentials=True) # Разрешаем браузеру передавать куки
 
-conn = sqlite3.connect('tasks.db', check_same_thread=False)
+# НАСТРОЙКИ ДЛЯ РАБОТЫ В ИНТЕРНЕТЕ (Куки)
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
+
+# Разрешаем CORS для всех (потом можешь заменить '*' на ссылку твоего сайта от Netlify)
+CORS(app, supports_credentials=True, origins="*") 
+
+# Подключение к PostgreSQL (Neon)
+# Если базы нет локально, используется DATABASE_URL из настроек Render
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if not DATABASE_URL:
+    # Локальная заглушка, если ты запускаешь у себя на компе без облачной базы
+    DATABASE_URL = 'postgresql://user:password@localhost:5432/tasksdb'
+
+url = urlparse(DATABASE_URL)
+conn = psycopg2.connect(
+    database=url.path[1:],
+    user=url.username,
+    password=url.password,
+    host=url.hostname,
+    port=url.port
+)
 cursor = conn.cursor()
 
-# 1. Таблица пользователей
+# 1. Таблица пользователей (SERIAL вместо AUTOINCREMENT)
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL
     )
 ''')
 
-# 2. Таблица задач (теперь с привязкой к user_id)
+# 2. Таблица задач (id теперь BIGINT, так как мы передаем Date.now())
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY,
+        id BIGINT PRIMARY KEY,
         text TEXT NOT NULL,
         status TEXT NOT NULL,
         user_id INTEGER NOT NULL,
@@ -35,9 +56,6 @@ cursor.execute('''
     )
 ''')
 conn.commit()
-
-
-# --- АВТОРИЗАЦИЯ ---
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -51,10 +69,11 @@ def register():
     hashed_pw = generate_password_hash(password)
     
     try:
-        cursor.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (username, hashed_pw))
+        cursor.execute('INSERT INTO users (username, password_hash) VALUES (%s, %s)', (username, hashed_pw))
         conn.commit()
         return jsonify({"message": "Успешно зарегистрирован"}), 201
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
+        conn.rollback() # Откатываем транзакцию при ошибке
         return jsonify({"error": "Пользователь уже существует"}), 400
 
 @app.route('/api/login', methods=['POST'])
@@ -63,30 +82,25 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
-    user = cursor.fetchone() # user = (id, username, password_hash)
+    cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+    user = cursor.fetchone()
 
-    # Проверяем, существует ли юзер и совпадает ли пароль с хэшем
     if user and check_password_hash(user[2], password):
-        session['user_id'] = user[0] # Записываем ID в сессию
+        session['user_id'] = user[0]
         return jsonify({"message": "Успешный вход"}), 200
     
     return jsonify({"error": "Неверный логин или пароль"}), 401
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    session.pop('user_id', None) # Удаляем ID из сессии
+    session.pop('user_id', None)
     return jsonify({"message": "Вы вышли"}), 200
 
-# Проверка: залогинен ли пользователь (нужно для JS)
 @app.route('/api/me', methods=['GET'])
 def get_me():
     if 'user_id' in session:
         return jsonify({"logged_in": True, "user_id": session['user_id']}), 200
     return jsonify({"logged_in": False}), 401
-
-
-# --- ЗАДАЧИ (ТЕПЕРЬ ЗАЩИЩЕННЫЕ) ---
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
@@ -94,8 +108,7 @@ def get_tasks():
     if not user_id:
         return jsonify({"error": "Доступ запрещен"}), 401
 
-    # Берем задачи ТОЛЬКО этого пользователя!
-    cursor.execute('SELECT id, text, status FROM tasks WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT id, text, status FROM tasks WHERE user_id = %s', (user_id,))
     rows = cursor.fetchall()
     tasks = [{"id": r[0], "text": r[1], "status": r[2]} for r in rows]
     return jsonify(tasks)
@@ -107,9 +120,8 @@ def add_task():
         return jsonify({"error": "Доступ запрещен"}), 401
 
     data = request.json
-    # Сохраняем задачу и привязываем к user_id
     cursor.execute(
-        'INSERT INTO tasks (id, text, status, user_id) VALUES (?, ?, ?, ?)',
+        'INSERT INTO tasks (id, text, status, user_id) VALUES (%s, %s, %s, %s)',
         (data['id'], data['text'], data['status'], user_id)
     )
     conn.commit()
@@ -121,8 +133,7 @@ def delete_task(task_id):
     if not user_id:
         return jsonify({"error": "Доступ запрещен"}), 401
 
-    # Удаляем только если задача принадлежит этому юзеру!
-    cursor.execute('DELETE FROM tasks WHERE id = ? AND user_id = ?', (task_id, user_id))
+    cursor.execute('DELETE FROM tasks WHERE id = %s AND user_id = %s', (task_id, user_id))
     conn.commit()
     return jsonify({"message": "Задача удалена"}), 200
 
@@ -133,15 +144,14 @@ def update_task(task_id):
         return jsonify({"error": "Доступ запрещен"}), 401
 
     data = request.json
-
     if 'status' in data:
-        cursor.execute('UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?', (data['status'], task_id, user_id))
+        cursor.execute('UPDATE tasks SET status = %s WHERE id = %s AND user_id = %s', (data['status'], task_id, user_id))
     if 'text' in data:
-        cursor.execute('UPDATE tasks SET text = ? WHERE id = ? AND user_id = ?', (data['text'], task_id, user_id))
+        cursor.execute('UPDATE tasks SET text = %s WHERE id = %s AND user_id = %s', (data['text'], task_id, user_id))
 
     conn.commit()
     return jsonify({"message": "Задача обновлена"}), 200
 
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
