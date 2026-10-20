@@ -1,0 +1,389 @@
+body {
+    margin: 0;
+    padding: 20px;
+    background: radial-gradient(circle at top, #1a054d, #100238);
+    color: #eee;
+    font-family: sans-serif;
+    min-height: 100vh;
+}
+
+.board {
+   display: flex;   
+   gap: 20px;
+   max-width: 1200px;
+   margin: 0 auto;
+   align-items: flex-start;
+}
+
+.column {
+    flex: 1;
+    background: #270348;
+    border-radius: 15px;
+    padding: 15px;
+    min-height: 400px;
+    min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 20px rgba(108, 2, 143, 0.223);
+}
+
+.column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.column-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #cec4ed;
+    text-shadow: 0 0 10px rgba(137, 43, 226, 0.493);
+}
+
+.add-btn {
+    width: 32px;
+    height: 32px;
+    background: #6e3f9a;
+    color: #eee;
+    border: none;
+    border-radius: 6px;
+    font-size: 17px;
+    cursor: pointer;
+    box-shadow: 0 2px 15px rgba(138, 43, 226, 0.4);
+    transition: all 0.3s ease;
+}
+
+.add-btn:hover {
+    color: rgb(187, 0, 255);
+    background: linear-gradient( #32028b, #571bb944);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(176, 98, 250, 0.688);
+}
+.add-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 10px rgba(176, 98, 250, 0.688);
+}
+.task {
+    background: #4c3f76;
+    color: #eee;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    outline: none;
+    min-height: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.2s ease;
+}
+.task:hover {
+    background: #571bb944;
+}
+h1 {
+    font-size: 28px;
+    color: #eee;
+    background: #6e3f9a25;
+    margin-top: 0;
+    margin-bottom: 24px;
+    text-align: center;
+    border-radius: 16px;
+    height: 44px;
+    line-height: 1.4;
+    padding: 10px 0;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(137, 43, 226, 0.245);
+}
+.task-text {
+    flex: 1;
+    outline: none;
+    cursor: text;
+    word-break: break-word;
+}
+.delete-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.262);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgb(161, 7, 204);
+
+    color: #ff010165;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 10px;
+    user-select: none;
+    line-height: 1;
+    
+    opacity: 0;
+    transition: all 0.2s;
+}
+.task:hover .delete-btn {
+    opacity: 1;
+    transform: translateY(2px);
+}
+.delete-btn:hover {
+    background: #b300ff;
+    color: rgb(252, 251, 250);
+    transform: translateY(-2px);
+}
+.delete-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 3px 16px rgba(246, 4, 234, 0.167);
+}
+.dragging {
+    opacity: 0.3;
+}
+.drag-handle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0);
+    border-radius: 4px;
+
+    cursor: grab;
+    color: #888;
+    margin-right: 8px;
+    font-size: 18px;
+    user-select: none;
+    box-shadow: 0 1px 2px #10023898; 
+}
+.drag-handle:hover{
+    background: #eeeeee2f;
+    color: #eee;
+    box-shadow: 0 3px 8px #6a00fffc;
+}
+.drag-handle:active {
+    cursor: grabbing;
+}
+.drop-indicator {
+    height: 3px;
+    background: #b300ffac;
+    border-radius: 2px;
+    margin-bottom: 8px;
+    transition: all 0.1s;
+    pointer-events: none;
+}
+#modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(16, 2, 56, 0.85);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 0.3s ease;
+}
+#modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+.modal-window {
+    background: #270348;
+    padding: 25px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(108, 2, 143, 0.2);
+}
+.moadl-window h2 {
+    margin-top: 0;
+    color: #cec4ed;
+    text-align: center;
+}
+#modal-input {
+    width: 100%;
+    height: 100px;
+    background: #100238;
+    color: #eee;
+    border: 1px solid #6e3f9a;
+    border-radius: 8px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 16px;
+    resize: none;
+    outline: none;
+    box-sizing: border-box;
+}
+#modal-input:focus {
+    border-color: #b300ff;
+    box-shadow: 0 0 10px rgba(179, 0, 255, 0.3);
+}
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 15px;
+}
+.modal-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2ms;
+}
+.modal-btn.cancel:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+.modal-btn.save {
+    background: #6e3f9a;
+    color: #eee;
+}
+.modal-btn.save:hover {
+    background: #b300ff;
+    box-shadow: 0 0 10px rgba(179, 0, 255, 0.5);
+}
+::-webkit-scrollbar {
+    width: 16px;
+}
+::-webkit-scrollbar-track {
+    background: #100238;
+}
+::-webkit-scrollbar-thumb {
+    background: #6e3f9a;
+    border-radius: 8px;
+    border: 2px solid #100238;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #b300ff;
+}
+/* Контейнер на весь экран */
+.auth-container {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at top, #1a054d, #100238);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* Поверх всего */
+    transition: opacity 0.3s ease;
+}
+
+/* Сама коробка с формой */
+.auth-box {
+    background: #270348;
+    padding: 40px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 350px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(108, 2, 143, 0.2);
+    text-align: center;
+}
+
+.auth-box h2 {
+    color: #cec4ed;
+    margin-top: 0;
+    margin-bottom: 25px;
+    text-shadow: 0 0 10px rgba(137, 43, 226, 0.5);
+}
+
+/* Поля ввода */
+.auth-box input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    background: #100238;
+    border: 1px solid #6e3f9a;
+    border-radius: 6px;
+    color: #eee;
+    font-size: 16px;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+.auth-box input:focus {
+    border-color: #b300ff;
+    box-shadow: 0 0 10px rgba(179, 0, 255, 0.3);
+}
+
+/* Кнопка входа */
+.auth-btn {
+    width: 100%;
+    padding: 12px;
+    background: #6e3f9a;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 15px rgba(138, 43, 226, 0.4);
+}
+
+.auth-btn:hover {
+    background: #b300ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(179, 0, 255, 0.6);
+}
+
+/* Текст-переключатель */
+.auth-switch {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #888;
+}
+
+.auth-switch a {
+    color: #b300ff;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.auth-switch a:hover {
+    text-decoration: underline;
+}
+
+/* Сообщение об ошибке */
+.error-msg {
+    color: #ff4d4d;
+    font-size: 14px;
+    margin-top: 10px;
+    min-height: 20px; /* Чтобы верстка не прыгала */
+}
+
+/* Класс для скрытия (если понадобится) */
+.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+}
+/* Кнопка выхода */
+.logout-btn {
+    position: fixed; /* Фиксируем в углу экрана */
+    top: 33px;
+    right: 30px;
+    padding: 10px 20px;
+    background: transparent;
+    color: #ff4d4d; /* Красный цвет текста */
+    border: 1px solid #ff4d4d;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 100; /* Чтобы всегда была поверх других элементов */
+}
+
+.logout-btn:hover {
+    background: #ff4d4d;
+    color: #fff;
+    box-shadow: 0 0 15px rgba(255, 77, 77, 0.6); /* Красное неоновое свечение */
+    transform: translateY(-2px);
+}
+
+.logout-btn:active {
+    transform: translateY(1px);
+}
+.modal-btn.cancel {
+    background: rgba(255, 255, 255, 0.1);
+    color: #eee;
+}

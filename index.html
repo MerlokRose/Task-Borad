@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Задачи</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="auth-screen" class="auth-container" style="display: none;">
+        <div class="auth-box">
+            <h2 id="auth-title">Вход в систему</h2>
+
+            <input type="text" id="username" placeholder="Логин" autocomplete="off">
+            <input type="password" id="password" placeholder="Пароль">
+
+            <button id="auth-submit" class="auth-btn">Войти</button>
+
+            <p class="auth-switch">
+                <span id="auth-toggle-text">Нет аккаунта?</span>
+                <a href="#" id="auth-toggle-link">Зарегистрироваться</a>
+            </p>
+            <p id="auth-error" class="error-msg"></p>
+        </div>
+    </div>
+
+    <h1>Планирование</h1>
+    <div class="board" id="main-board" style="display: none;">
+       <button id="logout-btn" class="logout-btn">Выйти</button>
+        <div class="column">
+            <div class="column-header">
+            <h2>Хочу Сделать</h2>
+            <button class="add-btn">+</button>
+            </div>
+        </div>  
+        
+        <div class="column">
+            <div class="column-header">
+            <h2>Сделано</h2>
+            <button class="add-btn">+</button>
+            </div>
+        </div>
+
+        <div class="column">
+            <div class="column-header">
+            <h2>На Будущее</h2>
+            <button class="add-btn">+</button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-overlay" class="hidden">
+        <div class="modal-window">
+            <h2>Новая Задача</h2>
+            <textarea id="modal-input" placeholder="Добавить Задачу"></textarea>
+
+            <div class="modal-buttons">
+                <button id="modal-cancel" class="modal-btn cancel">Отмена</button>
+                <button id="modal-save" class="modal-btn save">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
