@@ -69,7 +69,7 @@ function createTask(text = "") {
 
         // Если ID есть (задача уже в базе), отправляем PUT
         if (taskId) {
-            fetch(`http://127.0.0.1:5000/api/tasks/${taskId}`, {
+            fetch(`https://task-borad.onrender.com/api/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: newText }),
@@ -99,7 +99,7 @@ function createTask(text = "") {
             return;
         }
     
-        fetch(`http://127.0.0.1:5000/api/tasks/${taskId}`, {
+        fetch(`https://task-borad.onrender.com/api/tasks/${taskId}`, {
             method: 'DELETE',
             credentials: 'include'
         })
@@ -160,7 +160,7 @@ modalSave.addEventListener("click", function() {
     if (columnIndex === 2) status = "future";
 
     // Отправляем на Python
-    fetch("http://127.0.0.1:5000/api/tasks", {
+    fetch("https://task-borad.onrender.com/api/tasks", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: Date.now(), text: text, status: status }),
@@ -233,7 +233,7 @@ columns.forEach(function(column) {
             if (columnIndex === 2) newStatus = "future";
 
             if (taskId) {
-                fetch(`http://127.0.0.1:5000/api/tasks/${taskId}`, {
+                fetch(`https://task-borad.onrender.com/api/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: newStatus }),
@@ -247,6 +247,7 @@ columns.forEach(function(column) {
             }
             draggedTask = null;
         }
+         dropIndicator.remove();
     });    
     column.addEventListener("dragleave", function(event){
         if (!column.contains(event.relatedTarget)) {
@@ -291,7 +292,7 @@ function saveAll() {
 
 // Загрузка
 function loadAll() {
-    fetch("http://127.0.0.1:5000/api/tasks", {
+    fetch("https://task-borad.onrender.com/api/tasks", {
         credentials: 'include'
     })
         .then(response => response.json())
@@ -348,7 +349,7 @@ authSubmit.addEventListener("click", function() {
 
     const endpoint = isLoginMode ? "/api/login" : "/api/register";
 
-    fetch(`http://127.0.0.1:5000${endpoint}`, {
+    fetch(`https://task-borad.onrender.com${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -372,7 +373,7 @@ authSubmit.addEventListener("click", function() {
 
 // Проверка: вошел ли пользователь?
 function checkAuth() {
-    fetch("http://127.0.0.1:5000/api/me", { credentials: 'include' })
+    fetch("https://task-borad.onrender.com/api/me", { credentials: 'include' })
     .then(response => {
         if (response.ok) {
             // Пользователь вошел
@@ -393,7 +394,7 @@ function checkAuth() {
 
 // Кнопка Выйти
 logoutBtn.addEventListener("click", function() {
-    fetch("http://127.0.0.1:5000/api/logout", { 
+    fetch("https://task-borad.onrender.com/api/logout", { 
         method: 'POST',
         credentials: 'include' 
     })

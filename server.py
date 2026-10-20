@@ -11,54 +11,51 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 
-# НАСТРОЙКИ ДЛЯ РАБОТЫ В ИНТЕРНЕТЕ (Куки)
+# Настройки для работы в интернете (куки)
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
-# Разрешаем CORS для всех (потом можешь заменить '*' на ссылку твоего сайта от Netlify)
-CORS(app, supports_credentials=True, origins=["https://merloktask-board.netlify.app"]) 
+# Разрешаем CORS только для твоего сайта на Netlify
+CORS(app, supports_credentials=True, origins=["https://merloktask-board.netlify.app"])
 
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
-
-# Подключение к PostgreSQL (Neon)
-# Если базы нет локально, используется DATABASE_URL из настроек Render
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-if not DATABASE_URL:
-    # Локальная заглушка, если ты запускаешь у себя на компе без облачной базы
-    DATABASE_URL = 'postgresql://user:password@localhost:5432/tasksdb'
-
-url = urlparse(DATABASE_URL)
-conn = psycopg2.connect(
-    database=url.path[1:],
-    user=url.username,
-    password=url.password,
-    host=url.hostname,
-    port=url.port
-)
-cursor = conn.cursor()
-
-# 1. Таблица пользователей (SERIAL вместо AUTOINCREMENT)
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL
+# Функция для создания нового соединения (решает проблему разрыва)
+def get_db_connection():
+    url = urlparse(DATABASE_URL)
+    return psycopg2.connect(
+        database=url.path[1:],
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
     )
-''')
 
-# 2. Таблица задач (id теперь BIGINT, так как мы передаем Date.now())
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS tasks (
-        id BIGINT PRIMARY KEY,
-        text TEXT NOT NULL,
-        status TEXT NOT NULL,
-        user_id INTEGER NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )
-''')
-conn.commit()
+# Создаем таблицы при старте (один раз)
+def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        )
+    ''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id BIGINT PRIMARY KEY,
+            text TEXT NOT NULL,
+            status TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    conn.commit()
+    cur.close()
+    conn.close()
+
+init_db()
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -71,13 +68,18 @@ def register():
 
     hashed_pw = generate_password_hash(password)
     
+    conn = get_db_connection()
+    cur = conn.cursor()
     try:
-        cursor.execute('INSERT INTO users (username, password_hash) VALUES (%s, %s)', (username, hashed_pw))
+        cur.execute('INSERT INTO users (username, password_hash) VALUES (%s, %s)', (username, hashed_pw))
         conn.commit()
         return jsonify({"message": "Успешно зарегистрирован"}), 201
     except psycopg2.IntegrityError:
-        conn.rollback() # Откатываем транзакцию при ошибке
+        conn.rollback()
         return jsonify({"error": "Пользователь уже существует"}), 400
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -85,14 +87,18 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
-    user = cursor.fetchone()
-
-    if user and check_password_hash(user[2], password):
-        session['user_id'] = user[0]
-        return jsonify({"message": "Успешный вход"}), 200
-    
-    return jsonify({"error": "Неверный логин или пароль"}), 401
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute('SELECT * FROM users WHERE username = %s', (username,))
+        user = cur.fetchone()
+        if user and check_password_hash(user[2], password):
+            session['user_id'] = user[0]
+            return jsonify({"message": "Успешный вход"}), 200
+        return jsonify({"error": "Неверный логин или пароль"}), 401
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
@@ -111,10 +117,16 @@ def get_tasks():
     if not user_id:
         return jsonify({"error": "Доступ запрещен"}), 401
 
-    cursor.execute('SELECT id, text, status FROM tasks WHERE user_id = %s', (user_id,))
-    rows = cursor.fetchall()
-    tasks = [{"id": r[0], "text": r[1], "status": r[2]} for r in rows]
-    return jsonify(tasks)
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute('SELECT id, text, status FROM tasks WHERE user_id = %s', (user_id,))
+        rows = cur.fetchall()
+        tasks = [{"id": r[0], "text": r[1], "status": r[2]} for r in rows]
+        return jsonify(tasks)
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route('/api/tasks', methods=['POST'])
 def add_task():
@@ -123,12 +135,18 @@ def add_task():
         return jsonify({"error": "Доступ запрещен"}), 401
 
     data = request.json
-    cursor.execute(
-        'INSERT INTO tasks (id, text, status, user_id) VALUES (%s, %s, %s, %s)',
-        (data['id'], data['text'], data['status'], user_id)
-    )
-    conn.commit()
-    return jsonify({"message": "Задача добавлена!"}), 201
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            'INSERT INTO tasks (id, text, status, user_id) VALUES (%s, %s, %s, %s)',
+            (data['id'], data['text'], data['status'], user_id)
+        )
+        conn.commit()
+        return jsonify({"message": "Задача добавлена!"}), 201
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
@@ -136,9 +154,15 @@ def delete_task(task_id):
     if not user_id:
         return jsonify({"error": "Доступ запрещен"}), 401
 
-    cursor.execute('DELETE FROM tasks WHERE id = %s AND user_id = %s', (task_id, user_id))
-    conn.commit()
-    return jsonify({"message": "Задача удалена"}), 200
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute('DELETE FROM tasks WHERE id = %s AND user_id = %s', (task_id, user_id))
+        conn.commit()
+        return jsonify({"message": "Задача удалена"}), 200
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
 def update_task(task_id):
@@ -147,13 +171,18 @@ def update_task(task_id):
         return jsonify({"error": "Доступ запрещен"}), 401
 
     data = request.json
-    if 'status' in data:
-        cursor.execute('UPDATE tasks SET status = %s WHERE id = %s AND user_id = %s', (data['status'], task_id, user_id))
-    if 'text' in data:
-        cursor.execute('UPDATE tasks SET text = %s WHERE id = %s AND user_id = %s', (data['text'], task_id, user_id))
-
-    conn.commit()
-    return jsonify({"message": "Задача обновлена"}), 200
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        if 'status' in data:
+            cur.execute('UPDATE tasks SET status = %s WHERE id = %s AND user_id = %s', (data['status'], task_id, user_id))
+        if 'text' in data:
+            cur.execute('UPDATE tasks SET text = %s WHERE id = %s AND user_id = %s', (data['text'], task_id, user_id))
+        conn.commit()
+        return jsonify({"message": "Задача обновлена"}), 200
+    finally:
+        cur.close()
+        conn.close()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
